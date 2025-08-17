@@ -1,12 +1,18 @@
 FROM node:20-alpine
 
-# Install system dependencies required for native modules
+# Install system dependencies required for native modules and Claude CLI
 RUN apk add --no-cache \
     python3 \
     make \
     g++ \
     sqlite \
-    curl
+    curl \
+    bash \
+    ca-certificates
+
+# Install Claude CLI
+RUN curl -L https://github.com/anthropics/claude-cli/releases/latest/download/claude-linux-x64 -o /usr/local/bin/claude \
+    && chmod +x /usr/local/bin/claude
 
 # Set working directory
 WORKDIR /app

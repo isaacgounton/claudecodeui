@@ -8,9 +8,16 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     volumes:
       - ./data:/app/data
       - ./projects:/app/projects
+      # Mount host directories for local development
+      - ${HOME}/.claude:/root/.claude:ro
+      - ${HOME}/.cursor:/root/.cursor:ro
+      # Mount project directories (adjust these paths as needed)
+      - ${HOME}/projects:/home/projects
+      - ${PWD}:/workspace
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
