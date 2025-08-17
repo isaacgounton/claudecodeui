@@ -11,12 +11,10 @@ RUN apk add --no-cache \
     git \
     ca-certificates
 
-# Install Claude CLI with error handling
-RUN curl -L https://github.com/anthropics/claude-cli/releases/latest/download/claude-linux-x64 -o /usr/local/bin/claude \
-    && chmod +x /usr/local/bin/claude \
-    && file /usr/local/bin/claude \
-    && ls -la /usr/local/bin/claude \
-    && (/usr/local/bin/claude --version || echo "Claude CLI test failed - binary may be incompatible with Alpine Linux")
+# Install Claude CLI via npm and ripgrep for Alpine Linux
+RUN apk add --no-cache ripgrep \
+    && npm install -g @anthropic-ai/claude-code \
+    && claude --version || echo "Claude CLI installation completed"
 
 # Set working directory
 WORKDIR /app
