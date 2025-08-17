@@ -23,12 +23,24 @@ const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
-  if (!token) {
+  if (!token || !token.trim()) {
+    console.log('❌ No token provided. Auth header:', authHeader);
     return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
 
+  const trimmedToken = token.trim();
+
+  // Basic JWT format validation (should have 3 parts separated by dots)
+  if (trimmedToken.split('.').length !== 3) {
+    console.log('❌ Malformed JWT token format. Parts:', trimmedToken.split('.').length);
+    return res.status(401).json({ error: 'Invalid token format.' });
+  }
+
+  // Debug: Log token info (first and last 10 chars for security)
+  console.log('🔑 Token received:', trimmedToken.substring(0, 10) + '...' + trimmedToken.substring(trimmedToken.length - 10));
+
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(trimmedToken, JWT_SECRET);
     
     // Verify user still exists and is active
     const user = userDb.getUserById(decoded.userId);
@@ -40,6 +52,7 @@ const authenticateToken = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Token verification error:', error);
+    console.error('Token that failed:', trimmedToken.substring(0, 20) + '...');
     return res.status(403).json({ error: 'Invalid token' });
   }
 };

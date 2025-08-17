@@ -1232,11 +1232,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, mess
   // Load Cursor default model from config
   useEffect(() => {
     if (provider === 'cursor') {
-      fetch('/api/cursor/config', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-        }
-      })
+      authenticatedFetch('/api/cursor/config')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.config?.model?.modelId) {

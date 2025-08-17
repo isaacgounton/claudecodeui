@@ -6,8 +6,8 @@ export const authenticatedFetch = (url, options = {}) => {
     'Content-Type': 'application/json',
   };
   
-  if (token) {
-    defaultHeaders['Authorization'] = `Bearer ${token}`;
+  if (token && token.trim()) {
+    defaultHeaders['Authorization'] = `Bearer ${token.trim()}`;
   }
   
   return fetch(url, {
