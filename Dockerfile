@@ -8,6 +8,7 @@ RUN apk add --no-cache \
     sqlite \
     curl \
     bash \
+    git \
     ca-certificates
 
 # Install Claude CLI

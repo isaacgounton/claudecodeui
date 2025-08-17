@@ -290,6 +290,104 @@ app.post('/api/projects/create', authenticateToken, async (req, res) => {
     }
 });
 
+// Clone git repository endpoint
+app.post('/api/projects/clone', authenticateToken, async (req, res) => {
+    try {
+        const { gitUrl, projectName } = req.body;
+
+        if (!gitUrl || !gitUrl.trim()) {
+            return res.status(400).json({ error: 'Git repository URL is required' });
+        }
+
+        // Validate git URL format
+        const gitUrlRegex = /^(https?:\/\/|git@|ssh:\/\/)/i;
+        if (!gitUrlRegex.test(gitUrl.trim())) {
+            return res.status(400).json({ error: 'Invalid git repository URL format' });
+        }
+
+        // Generate project name from git URL if not provided
+        let finalProjectName = projectName;
+        if (!finalProjectName || !finalProjectName.trim()) {
+            // Extract repo name from URL (e.g., 'myrepo' from 'https://github.com/user/myrepo.git')
+            const urlParts = gitUrl.trim().split('/');
+            finalProjectName = urlParts[urlParts.length - 1].replace(/\.git$/, '');
+        }
+
+        // Clean project name (remove invalid characters)
+        finalProjectName = finalProjectName.trim().replace(/[^a-zA-Z0-9\-_]/g, '-');
+
+        // Define projects directory (create if it doesn't exist)
+        const projectsDir = path.join(process.cwd(), 'projects');
+        try {
+            await fsPromises.access(projectsDir);
+        } catch {
+            await fsPromises.mkdir(projectsDir, { recursive: true });
+        }
+
+        const targetPath = path.join(projectsDir, finalProjectName);
+
+        // Check if project directory already exists
+        try {
+            await fsPromises.access(targetPath);
+            return res.status(400).json({ error: `Project directory '${finalProjectName}' already exists` });
+        } catch {
+            // Directory doesn't exist, which is what we want
+        }
+
+        console.log(`🔄 Cloning repository: ${gitUrl} to ${targetPath}`);
+
+        // Clone the repository
+        const cloneProcess = spawn('git', ['clone', gitUrl.trim(), targetPath], {
+            stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        cloneProcess.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        cloneProcess.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        cloneProcess.on('close', async (code) => {
+            if (code === 0) {
+                try {
+                    // Successfully cloned, now add as a project
+                    const project = await addProjectManually(targetPath);
+                    console.log(`✅ Repository cloned successfully: ${finalProjectName}`);
+                    res.json({ 
+                        success: true, 
+                        project,
+                        message: `Repository cloned successfully as '${finalProjectName}'`,
+                        path: targetPath
+                    });
+                } catch (addError) {
+                    console.error('Error adding cloned project:', addError);
+                    res.status(500).json({ error: `Repository cloned but failed to add as project: ${addError.message}` });
+                }
+            } else {
+                console.error(`❌ Git clone failed with code ${code}:`, stderr);
+                res.status(500).json({ 
+                    error: `Failed to clone repository: ${stderr || 'Unknown error'}`,
+                    gitOutput: stderr
+                });
+            }
+        });
+
+        cloneProcess.on('error', (error) => {
+            console.error('Git clone process error:', error);
+            res.status(500).json({ error: `Git clone failed: ${error.message}` });
+        });
+
+    } catch (error) {
+        console.error('Error cloning repository:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Read file content endpoint
 app.get('/api/projects/:projectName/file', authenticateToken, async (req, res) => {
     try {

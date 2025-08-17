@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 
-import { FolderOpen, Folder, Plus, MessageSquare, Clock, ChevronDown, ChevronRight, Edit3, Check, X, Trash2, Settings, FolderPlus, RefreshCw, Sparkles, Edit2, Star, Search } from 'lucide-react';
+import { FolderOpen, Folder, Plus, MessageSquare, Clock, ChevronDown, ChevronRight, Edit3, Check, X, Trash2, Settings, FolderPlus, RefreshCw, Sparkles, Edit2, Star, Search, GitBranch, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
 import ClaudeLogo from './ClaudeLogo';
 import CursorLogo from './CursorLogo.jsx';
@@ -69,6 +69,9 @@ function Sidebar({
   const [editingSessionName, setEditingSessionName] = useState('');
   const [generatingSummary, setGeneratingSummary] = useState({});
   const [searchFilter, setSearchFilter] = useState('');
+  const [projectCreationType, setProjectCreationType] = useState('path'); // 'path' or 'git'
+  const [gitUrl, setGitUrl] = useState('');
+  const [gitProjectName, setGitProjectName] = useState('');
 
   
   // Starred projects state - persisted in localStorage
@@ -328,26 +331,57 @@ function Sidebar({
   };
 
   const createNewProject = async () => {
-    if (!newProjectPath.trim()) {
-      alert('Please enter a project path');
-      return;
+    if (projectCreationType === 'path') {
+      if (!newProjectPath.trim()) {
+        alert('Please enter a project path');
+        return;
+      }
+    } else if (projectCreationType === 'git') {
+      if (!gitUrl.trim()) {
+        alert('Please enter a git repository URL');
+        return;
+      }
     }
 
     setCreatingProject(true);
     
     try {
-      const response = await api.createProject(newProjectPath.trim());
+      let response;
+      
+      if (projectCreationType === 'path') {
+        response = await api.createProject(newProjectPath.trim());
+      } else {
+        // Clone git repository
+        response = await fetch('/api/projects/clone', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            gitUrl: gitUrl.trim(),
+            projectName: gitProjectName.trim() || undefined
+          })
+        });
+      }
 
       if (response.ok) {
         const result = await response.json();
         setShowNewProject(false);
         setNewProjectPath('');
+        setGitUrl('');
+        setGitProjectName('');
         
         // Refresh projects to show the new one
         if (window.refreshProjects) {
           window.refreshProjects();
         } else {
           window.location.reload();
+        }
+        
+        // Show success message for git clone
+        if (projectCreationType === 'git') {
+          alert(result.message || 'Repository cloned successfully!');
         }
       } else {
         const error = await response.json();
@@ -364,6 +398,9 @@ function Sidebar({
   const cancelNewProject = () => {
     setShowNewProject(false);
     setNewProjectPath('');
+    setGitUrl('');
+    setGitProjectName('');
+    setProjectCreationType('path');
   };
 
   const loadMoreSessions = async (project) => {
@@ -504,30 +541,102 @@ function Sidebar({
       {showNewProject && (
         <div className="md:p-3 md:border-b md:border-border md:bg-muted/30">
           {/* Desktop Form */}
-          <div className="hidden md:block space-y-2">
+          <div className="hidden md:block space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
               <FolderPlus className="w-4 h-4" />
               Create New Project
             </div>
-            <Input
-              value={newProjectPath}
-              onChange={(e) => setNewProjectPath(e.target.value)}
-              placeholder="/path/to/project or relative/path"
-              className="text-sm focus:ring-2 focus:ring-primary/20"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') createNewProject();
-                if (e.key === 'Escape') cancelNewProject();
-              }}
-            />
+            
+            {/* Project Type Toggle */}
+            <div className="flex gap-1 p-1 bg-muted rounded-md">
+              <button
+                className={cn(
+                  "flex-1 px-2 py-1 text-xs rounded-sm transition-all duration-200 flex items-center justify-center gap-1",
+                  projectCreationType === 'path' 
+                    ? "bg-background text-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setProjectCreationType('path')}
+              >
+                <Folder className="w-3 h-3" />
+                Local Path
+              </button>
+              <button
+                className={cn(
+                  "flex-1 px-2 py-1 text-xs rounded-sm transition-all duration-200 flex items-center justify-center gap-1",
+                  projectCreationType === 'git' 
+                    ? "bg-background text-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setProjectCreationType('git')}
+              >
+                <GitBranch className="w-3 h-3" />
+                Git Clone
+              </button>
+            </div>
+
+            {/* Form Fields */}
+            {projectCreationType === 'path' ? (
+              <Input
+                value={newProjectPath}
+                onChange={(e) => setNewProjectPath(e.target.value)}
+                placeholder="/path/to/project or relative/path"
+                className="text-sm focus:ring-2 focus:ring-primary/20"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') createNewProject();
+                  if (e.key === 'Escape') cancelNewProject();
+                }}
+              />
+            ) : (
+              <div className="space-y-2">
+                <Input
+                  value={gitUrl}
+                  onChange={(e) => setGitUrl(e.target.value)}
+                  placeholder="https://github.com/user/repo.git"
+                  className="text-sm focus:ring-2 focus:ring-primary/20"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') createNewProject();
+                    if (e.key === 'Escape') cancelNewProject();
+                  }}
+                />
+                <Input
+                  value={gitProjectName}
+                  onChange={(e) => setGitProjectName(e.target.value)}
+                  placeholder="Project name (optional - auto-detected from URL)"
+                  className="text-sm focus:ring-2 focus:ring-primary/20"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') createNewProject();
+                    if (e.key === 'Escape') cancelNewProject();
+                  }}
+                />
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button
                 size="sm"
                 onClick={createNewProject}
-                disabled={!newProjectPath.trim() || creatingProject}
+                disabled={
+                  (projectCreationType === 'path' && !newProjectPath.trim()) ||
+                  (projectCreationType === 'git' && !gitUrl.trim()) ||
+                  creatingProject
+                }
                 className="flex-1 h-8 text-xs hover:bg-primary/90 transition-colors"
               >
-                {creatingProject ? 'Creating...' : 'Create Project'}
+                {creatingProject ? (
+                  projectCreationType === 'git' ? 'Cloning...' : 'Creating...'
+                ) : (
+                  projectCreationType === 'git' ? (
+                    <>
+                      <Download className="w-3 h-3 mr-1" />
+                      Clone Repository
+                    </>
+                  ) : (
+                    'Create Project'
+                  )
+                )}
               </Button>
               <Button
                 size="sm"
@@ -563,17 +672,72 @@ function Sidebar({
               </div>
               
               <div className="space-y-3">
-                <Input
-                  value={newProjectPath}
-                  onChange={(e) => setNewProjectPath(e.target.value)}
-                  placeholder="/path/to/project or relative/path"
-                  className="text-sm h-10 rounded-md focus:border-primary transition-colors"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') createNewProject();
-                    if (e.key === 'Escape') cancelNewProject();
-                  }}
-                />
+                {/* Mobile Project Type Toggle */}
+                <div className="flex gap-1 p-1 bg-muted rounded-lg">
+                  <button
+                    className={cn(
+                      "flex-1 px-3 py-2 text-sm rounded-md transition-all duration-200 flex items-center justify-center gap-2",
+                      projectCreationType === 'path' 
+                        ? "bg-background text-foreground shadow-sm" 
+                        : "text-muted-foreground"
+                    )}
+                    onClick={() => setProjectCreationType('path')}
+                  >
+                    <Folder className="w-4 h-4" />
+                    Local Path
+                  </button>
+                  <button
+                    className={cn(
+                      "flex-1 px-3 py-2 text-sm rounded-md transition-all duration-200 flex items-center justify-center gap-2",
+                      projectCreationType === 'git' 
+                        ? "bg-background text-foreground shadow-sm" 
+                        : "text-muted-foreground"
+                    )}
+                    onClick={() => setProjectCreationType('git')}
+                  >
+                    <GitBranch className="w-4 h-4" />
+                    Git Clone
+                  </button>
+                </div>
+
+                {/* Mobile Form Fields */}
+                {projectCreationType === 'path' ? (
+                  <Input
+                    value={newProjectPath}
+                    onChange={(e) => setNewProjectPath(e.target.value)}
+                    placeholder="/path/to/project or relative/path"
+                    className="text-sm h-10 rounded-md focus:border-primary transition-colors"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') createNewProject();
+                      if (e.key === 'Escape') cancelNewProject();
+                    }}
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <Input
+                      value={gitUrl}
+                      onChange={(e) => setGitUrl(e.target.value)}
+                      placeholder="https://github.com/user/repo.git"
+                      className="text-sm h-10 rounded-md focus:border-primary transition-colors"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') createNewProject();
+                        if (e.key === 'Escape') cancelNewProject();
+                      }}
+                    />
+                    <Input
+                      value={gitProjectName}
+                      onChange={(e) => setGitProjectName(e.target.value)}
+                      placeholder="Project name (optional)"
+                      className="text-sm h-10 rounded-md focus:border-primary transition-colors"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') createNewProject();
+                        if (e.key === 'Escape') cancelNewProject();
+                      }}
+                    />
+                  </div>
+                )}
                 
                 <div className="flex gap-2">
                   <Button
@@ -586,10 +750,25 @@ function Sidebar({
                   </Button>
                   <Button
                     onClick={createNewProject}
-                    disabled={!newProjectPath.trim() || creatingProject}
+                    disabled={
+                      (projectCreationType === 'path' && !newProjectPath.trim()) ||
+                      (projectCreationType === 'git' && !gitUrl.trim()) ||
+                      creatingProject
+                    }
                     className="flex-1 h-9 text-sm rounded-md bg-primary hover:bg-primary/90 active:scale-95 transition-all"
                   >
-                    {creatingProject ? 'Creating...' : 'Create'}
+                    {creatingProject ? (
+                      projectCreationType === 'git' ? 'Cloning...' : 'Creating...'
+                    ) : (
+                      projectCreationType === 'git' ? (
+                        <>
+                          <Download className="w-4 h-4 mr-1" />
+                          Clone
+                        </>
+                      ) : (
+                        'Create'
+                      )
+                    )}
                   </Button>
                 </div>
               </div>
