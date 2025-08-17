@@ -71,6 +71,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ path }),
     }),
+  cloneProject: (gitUrl, projectName) =>
+    authenticatedFetch('/api/projects/clone', {
+      method: 'POST',
+      body: JSON.stringify({ gitUrl, projectName }),
+    }),
   readFile: (projectName, filePath) =>
     authenticatedFetch(`/api/projects/${projectName}/file?filePath=${encodeURIComponent(filePath)}`),
   saveFile: (projectName, filePath, content) =>

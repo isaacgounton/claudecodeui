@@ -352,17 +352,7 @@ function Sidebar({
         response = await api.createProject(newProjectPath.trim());
       } else {
         // Clone git repository
-        response = await fetch('/api/projects/clone', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            gitUrl: gitUrl.trim(),
-            projectName: gitProjectName.trim() || undefined
-          })
-        });
+        response = await api.cloneProject(gitUrl.trim(), gitProjectName.trim() || undefined);
       }
 
       if (response.ok) {
