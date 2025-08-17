@@ -227,13 +227,29 @@ async function extractProjectDirectory(projectName) {
     return extractedPath;
     
   } catch (error) {
-    // If the directory doesn't exist, just use the decoded project name
+    // If the directory doesn't exist, try to find the actual path
     if (error.code === 'ENOENT') {
-      extractedPath = projectName.replace(/-/g, '/');
+      // First check if this is a direct path (for cloned projects in /app/projects/)
+      const potentialDirectPath = path.join(process.cwd(), 'projects', projectName);
+      try {
+        await fs.access(potentialDirectPath);
+        extractedPath = potentialDirectPath;
+        console.log(`📁 Found cloned project at: ${extractedPath}`);
+      } catch {
+        // Fall back to decoded project name (traditional Claude projects)
+        extractedPath = projectName.replace(/-/g, '/');
+        console.log(`📁 Using decoded path for traditional project: ${extractedPath}`);
+      }
     } else {
       console.error(`Error extracting project directory for ${projectName}:`, error);
-      // Fall back to decoded project name for other errors
-      extractedPath = projectName.replace(/-/g, '/');
+      // Try direct path first, then fall back to decoded
+      const potentialDirectPath = path.join(process.cwd(), 'projects', projectName);
+      try {
+        await fs.access(potentialDirectPath);
+        extractedPath = potentialDirectPath;
+      } catch {
+        extractedPath = projectName.replace(/-/g, '/');
+      }
     }
     
     // Cache the fallback result too

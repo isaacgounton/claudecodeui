@@ -356,6 +356,7 @@ app.post('/api/projects/clone', authenticateToken, async (req, res) => {
             if (code === 0) {
                 try {
                     // Successfully cloned, now add as a project
+                    console.log(`📁 Adding cloned project with path: ${targetPath}`);
                     const project = await addProjectManually(targetPath);
                     console.log(`✅ Repository cloned successfully: ${finalProjectName}`);
                     res.json({ 

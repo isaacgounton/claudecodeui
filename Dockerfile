@@ -11,9 +11,12 @@ RUN apk add --no-cache \
     git \
     ca-certificates
 
-# Install Claude CLI
+# Install Claude CLI with error handling
 RUN curl -L https://github.com/anthropics/claude-cli/releases/latest/download/claude-linux-x64 -o /usr/local/bin/claude \
-    && chmod +x /usr/local/bin/claude
+    && chmod +x /usr/local/bin/claude \
+    && file /usr/local/bin/claude \
+    && ls -la /usr/local/bin/claude \
+    && (/usr/local/bin/claude --version || echo "Claude CLI test failed - binary may be incompatible with Alpine Linux")
 
 # Set working directory
 WORKDIR /app
